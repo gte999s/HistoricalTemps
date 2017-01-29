@@ -5,11 +5,12 @@ import numpy as np
 from datetime import datetime
 
 # create client
-noaa = myNOAA.noaa()
+noaa = myNOAA.noaa(startMonth="02")
 
 print "sending request"
 dailySums = noaa.getData(30528)
 
+print "got request"
 file = open('dailySums.html', 'w')
 file.write(dailySums.text)
 file.close()
