@@ -1,23 +1,93 @@
 
 import requests
+import pandas
+import cPickle as pickle
+from datetime import datetime
+from datetime import timedelta
+
+def load(pickleFileName = "weatherData.p"):
+    file = open(pickleFileName, 'rb')
+    noaaObj = pickle.load(file)
+    file.close()
+    return noaaObj
 
 
 class noaa:
-
-    def __init__(self, startYear="2016", startMonth="12", startDay="01", endYear="2017",endMonth="01",endDay="01"):
+    def __init__(self):
         self.token = "VaxmiYwCHiVWYivnDhkrMIWUSmUMsVSa"
-        self.startTime = startYear + "-" + startMonth + "-" + startDay
-        self.endTime   = endYear + "-" + endMonth + "-" + endDay
         self.dataSet = "GHCND"
+        self.units = 'standard'
         self.requestURL = "http://www.ncdc.noaa.gov/cdo-web/api/v2/"
+        self.data = pandas.DataFrame()
+        self.requestedDataNum = None
+        self.receivedDataNum = 0
 
-    def getData(self, zipCode):
-        customPart = "data?datasetid={dataSet}&locationid=ZIP:{zip}&startdate={startDate}&enddate={endDate}&limit=1000"
+    def save(self, fileName = "weatherData.p"):
+        print "Saving to File: " + fileName
+        file = open(fileName, 'wb')
+        pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+        file.close()
+
+    def getAllData(self, startTime=datetime(1900,1,1), endTime=datetime.now()):
+        self.startTime = startTime
+        self.endTime = endTime
+        startTimeTemp = startTime
+        endTimeTemp = startTime
+
+        while endTimeTemp < endTime:
+            startTimeTemp = endTimeTemp
+            endTimeTemp = endTimeTemp + timedelta(days=365)
+
+            if endTimeTemp > endTime:
+                endTimeTemp = endTime
+
+            print "Getting Data for {start} to {end}".format(start=startTimeTemp.strftime('%Y-%m-%d'),
+                                                             end=endTimeTemp.strftime('%Y-%m-%d'))
+
+            self.getData(startTime=startTimeTemp, endTime=endTimeTemp)
+
+    def getData(self, startTime=datetime(2000,1,1), endTime=datetime(2000,2,1)):
+        # Athens GA
+        customPart = "data?datasetid={dataSet}&locationid=CITY:US130003&startdate={startDate}&enddate={endDate}" \
+                     "&limit=1000&datatypeid=TMAX&datatypeid=TMIN&units={units}&offset={offset}"
+
         url = self.requestURL + customPart.format(dataSet=self.dataSet,
-                                                  zip=zipCode,
-                                                  startDate=self.startTime,
-                                                  endDate=self.endTime)
+                                                  startDate=startTime.strftime('%Y-%m-%dT%H:%M:%S'),
+                                                  endDate=endTime.strftime('%Y-%m-%dT%H:%M:%S'),
+                                                  units=self.units,
+                                                  offset=self.receivedDataNum)
         headers = {'token': self.token}
-        response = requests.get(url, headers=headers)
+        needData = True
+        totalData = 0
         print url
-        return response
+
+        while needData:
+            print "Sending Request"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 502:
+                print "Service is Unavailable, retrying"
+
+            else:
+                needData = False
+                print "Data Received"
+                data = response.json()
+                if data.__len__() == 0:
+                    print "No Data for Date Range"
+                    continue
+
+                self.data = self.data.append(data['results'])
+                if self.requestedDataNum is None:
+                    self.requestedDataNum = data['metadata']['resultset']['count']
+
+                self.receivedDataNum += data['results'].__len__()  + 1
+
+        if self.receivedDataNum < self.requestedDataNum:
+            print "Asking for more data to complete request {percent}% Complete".format(percent=100*self.receivedDataNum/self.requestedDataNum)
+            self.getData( startTime=startTime, endTime=endTime)
+
+        else:
+            self.receivedDataNum = 0
+            self.requestedDataNum = None
+
+
+
