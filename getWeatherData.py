@@ -9,8 +9,8 @@ noaa = myNOAA.noaa()
 states = noaa.getStateIDs()
 
 
-noaa.getData(startTime = datetime(1900,1,1))
-noaa.save(fileName = "georgia.p")
+noaa.getData(startTime=datetime(1900, 1, 1))
+noaa.save(fileName="georgiaTemps.p")
 print noaa.data
 
 
