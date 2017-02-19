@@ -6,9 +6,13 @@ from datetime import datetime
 
 # create client
 noaa = myNOAA.noaa()
+states = noaa.getStateIDs()
 
-noaa.getAllData(startTime=datetime(1900,1,1))
-noaa.save()
+
+noaa.getData(startTime = datetime(1900,1,1))
+noaa.save(fileName = "georgia.p")
+print noaa.data
+
 
 
 

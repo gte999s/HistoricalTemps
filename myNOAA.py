@@ -23,6 +23,7 @@ class noaa:
         self.data = pandas.DataFrame()
         self.requestedDataNum = None
         self.receivedDataNum = 0
+        self.locationID = 'FIPS:13'
 
     def save(self, fileName = "weatherData.p"):
         print "Saving to File: " + fileName
@@ -48,12 +49,29 @@ class noaa:
 
             self.getData(startTime=startTimeTemp, endTime=endTimeTemp)
 
+    def getStateIDs(self):
+        headers = {'token': self.token}
+        url = 'https://www.ncdc.noaa.gov/cdo-web/api/v2/locations?locationcategoryid=ST&datasetid=GHCND&limit=1000'
+        needData = True
+        totalData = 0
+
+        while needData:
+            print "Sending Request"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 502:
+                print "Service is Unavailable, retrying"
+
+            else:
+                needData = False
+                print "Data Received"
+                return response.json()
+
     def getData(self, startTime=datetime(2000,1,1), endTime=datetime(2000,2,1)):
-        # Athens GA
-        customPart = "data?datasetid={dataSet}&locationid=CITY:US130003&startdate={startDate}&enddate={endDate}" \
+        customPart = "data?datasetid={dataSet}&locationid={locationID}&startdate={startDate}&enddate={endDate}" \
                      "&limit=1000&datatypeid=TMAX&datatypeid=TMIN&units={units}&offset={offset}"
 
         url = self.requestURL + customPart.format(dataSet=self.dataSet,
+                                                  locationID=self.locationID,
                                                   startDate=startTime.strftime('%Y-%m-%dT%H:%M:%S'),
                                                   endDate=endTime.strftime('%Y-%m-%dT%H:%M:%S'),
                                                   units=self.units,
